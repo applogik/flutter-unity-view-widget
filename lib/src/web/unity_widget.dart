@@ -85,12 +85,10 @@ class UnityWidget extends StatefulWidget {
   final TextDirection? layoutDirection;
 
   @override
-  _UnityWidgetState createState() => _UnityWidgetState();
+  UnityWidgetState createState() => UnityWidgetState();
 }
 
-typedef WebUnityWidgetState = _UnityWidgetState;
-
-class _UnityWidgetState extends State<UnityWidget> {
+class UnityWidgetState extends State<UnityWidget> {
   UnityWidgetController? _controller;
 
   @override
@@ -111,21 +109,18 @@ class _UnityWidgetState extends State<UnityWidget> {
     };
 
     if (widget.enablePlaceholder) {
-      return widget.placeholder ??
-          Text('Placeholder mode enabled, no native code will be called');
+      return widget.placeholder ?? Text('Placeholder mode enabled, no native code will be called');
     }
 
     return WebUnityWidgetView(
       unitySrcUrl: widget.webUrl ?? '',
-      onWebViewCreated: (_) {
-        _onPlatformViewCreated();
-      },
+      onWebViewCreated: _onPlatformViewCreated,
       unityOptions: unityOptions,
     );
   }
 
   Future<void> _onPlatformViewCreated() async {
-    final controller = await WebUnityWidgetController(this);
+    final controller = await WebUnityWidgetController.init(0, this);
     _controller = controller;
     widget.onUnityCreated(controller);
 

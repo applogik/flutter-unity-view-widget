@@ -4,14 +4,13 @@ import 'dart:html' as html;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_unity_widget/src/web/unity_widget.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:stream_transform/stream_transform.dart';
 
 import '../facade_controller.dart';
 import '../helpers/events.dart';
-import '../helpers/misc.dart';
 import '../helpers/types.dart';
-import 'unity_widget.dart';
 
 class UnityWebEvent {
   UnityWebEvent({
@@ -23,7 +22,7 @@ class UnityWebEvent {
 }
 
 class WebUnityWidgetController extends UnityWidgetController {
-  final WebUnityWidgetState _unityWidgetState;
+  final UnityWidgetState _unityWidgetState;
 
   static Registrar? webRegistrar;
 
@@ -51,30 +50,24 @@ class WebUnityWidgetController extends UnityWidgetController {
   // Returns a filtered view of the events in the _controller, by unityId.
   Stream<UnityEvent> get _events => _unityStreamController.stream;
 
-  WebUnityWidgetController(this._unityWidgetState) {
+  WebUnityWidgetController._(this._unityWidgetState) {
     _channel = ensureChannelInitialized();
     _connectStreams();
     _registerEvents();
   }
 
   /// Accesses the MethodChannel associated to the passed unityId.
-  MethodChannel get channel {
-    MethodChannel? channel = _channel;
-    if (channel == null) {
-      throw UnknownUnityIDError(0);
-    }
-    return channel;
-  }
+  MethodChannel get channel => _channel!;
 
   // /// Initialize [UnityWidgetController] with [id]
   // /// Mainly for internal use when instantiating a [UnityWidgetController] passed
   // /// in [UnityWidget.onUnityCreated] callback.
-  // static Future<WebUnityWidgetController> init(
-  //     int id, _UnityWidgetState unityWidgetState) async {
-  //   return WebUnityWidgetController._(
-  //     unityWidgetState,
-  //   );
-  // }
+  static Future<WebUnityWidgetController> init(
+      int id, UnityWidgetState unityWidgetState) async {
+    return WebUnityWidgetController._(
+      unityWidgetState,
+    );
+  }
 
   /// Method required for web initialization
   static void registerWith(Registrar registrar) {
@@ -202,12 +195,36 @@ class WebUnityWidgetController extends UnityWidgetController {
         'unityFlutterBiding',
         data: json.encode({
           "gameObject": gameObject,
-          "method": methodName,
+          "methodName": methodName,
           "message": message,
         }),
       );
       html.window.dispatchEvent(_unityFlutterBiding);
+      refreshUnityView();
     }
+  }
+
+  void refreshUnityView() {
+    html.Element? frame = html.document
+        .querySelector('flt-platform-view')
+        ?.querySelector('iframe');
+
+    if (frame != null) {
+      (frame as html.IFrameElement).focus();
+    }
+  }
+
+  @override
+  Future<void>? postMessage(
+    String gameObject,
+    dynamic methodName,
+    dynamic message,
+  ) async {
+    messageUnity(
+      gameObject: gameObject,
+      methodName: methodName,
+      message: message,
+    );
   }
 
   @override
@@ -216,21 +233,21 @@ class WebUnityWidgetController extends UnityWidgetController {
     String methodName,
     Map<String, dynamic> message,
   ) async {
-    await channel.invokeMethod('unity#postMessage', <String, dynamic>{
-      'gameObject': gameObject,
-      'methodName': methodName,
-      'message': json.encode(message),
-    });
+    messageUnity(
+      gameObject: gameObject,
+      methodName: methodName,
+      message: json.encode(message),
+    );
   }
 
   @override
   Future<void> pause() async {
-    await channel.invokeMethod('unity#pausePlayer');
+    callUnityFn(fnName: 'pause');
   }
 
   @override
   Future<void> resume() async {
-    await channel.invokeMethod('unity#resumePlayer');
+    callUnityFn(fnName: 'resume');
   }
 
   @override
@@ -240,12 +257,12 @@ class WebUnityWidgetController extends UnityWidgetController {
 
   @override
   Future<void> unload() async {
-    await channel.invokeMethod('unity#unloadPlayer');
+    callUnityFn(fnName: 'unload');
   }
 
   @override
   Future<void> quit() async {
-    await channel.invokeMethod('unity#quitPlayer');
+    callUnityFn(fnName: 'quit');
   }
 
   /// cancel the subscriptions when dispose called
