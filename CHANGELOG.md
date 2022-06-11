@@ -1,3 +1,7 @@
+## 2022.1.2
+
+* Fix Web
+
 ## 2022.1.1+3
 
 * Fixed array index range crash on ios
